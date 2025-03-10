@@ -1,0 +1,54 @@
+services:
+  postgres:
+    container_name: brp-postgres
+    image: postgres:16.2-alpine
+    ports:
+      - 5432:5432
+    networks:
+      - brp
+    volumes:
+      - brp:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      DATABASE: brp_local
+      POSTGRES_PASSWORD: admin@12345
+  localstack:
+    image: localstack/localstack:1.4.0
+    environment:
+      - AWS_DEFAULT_REGION=us-east-1
+      - EDGE_PORT=4566
+      - SERVICES=s3,sqs,ssm,secretsmanager,pinpoint
+      - DEBUG=1
+    ports:
+      - '4563-4599:4563-4599'
+      - '8055:8080'
+    volumes:
+      - './src/.localstack:/var/lib/localstack'
+      - './src/scripts/localstack-setup:/docker-entrypoint-initaws.d'
+    networks:
+      - brp
+  redis:
+    image: redis:7.4.2
+    restart: always
+    ports:
+      - '6380:6379'
+    command: redis-server --save 20 1 --loglevel warning
+    volumes: 
+      - cache:/data
+    networks:
+      - brp
+  redis-insight:
+    image: redis/redisinsight:latest
+    restart: always
+    ports:
+      - "5540:5540"
+    volumes:
+      - redis-insight:/data
+    networks:
+      - brp
+volumes:
+  brp:
+  cache:
+  redis-insight:
+networks:
+  brp:
