@@ -10,13 +10,10 @@ import { diskStorage } from 'multer';
 import { randomStringGenerator } from '@nestjs/common/utils/random-string-generator.util';
 
 import { FilesLocalService } from './files.service';
-
 import { RelationalFilePersistenceModule } from '../../persistence/relational/relational-persistence.module';
 import { AllConfigType } from '../../../../config/config.type';
 
-// <database-block>
 const infrastructurePersistenceModule = RelationalFilePersistenceModule;
-// </database-block>
 
 @Module({
   imports: [

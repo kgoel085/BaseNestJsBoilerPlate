@@ -1,4 +1,5 @@
 import { registerAs } from '@nestjs/config';
+import dotenv from 'dotenv';
 
 import {
   IsOptional,
@@ -73,6 +74,10 @@ class EnvironmentVariablesValidator {
 }
 
 export default registerAs<DatabaseConfig>('database', () => {
+  if (!process.env.DATABASE_TYPE) {
+    // it should not override something and also not to give error if .env file is not there
+    dotenv.config();
+  }
   validateConfig(process.env, EnvironmentVariablesValidator);
 
   return {

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { SessionRepository } from './infrastructure/persistence/session.repository';
 import { Session } from './domain/session';
-import { User } from '../users/domain/user';
+import { User } from '../users/repositories/user/domain/user';
 import { NullableType } from '../utils/types/nullable.type';
 
 @Injectable()
@@ -26,6 +26,15 @@ export class SessionService {
     >,
   ): Promise<Session | null> {
     return this.sessionRepository.update(id, payload);
+  }
+
+  updateByHash(
+    conditions: { id: Session['id']; hash: Session['hash'] },
+    payload: Partial<
+      Omit<Session, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
+    >,
+  ): Promise<Session | null> {
+    return this.sessionRepository.updateByHash(conditions, payload);
   }
 
   deleteById(id: Session['id']): Promise<void> {

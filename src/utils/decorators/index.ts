@@ -10,8 +10,16 @@ import {
   ValidationOptions,
   ValidationArguments,
 } from 'class-validator';
+interface ApiCommonResponseOptions {
+  nullable?: boolean;
+}
 
-export function ApiCommonResponse<T extends Type<any>>(dataType: T) {
+export function ApiCommonResponse<T extends Type<any>>(
+  dataType: T,
+  options: ApiCommonResponseOptions = {},
+) {
+  const { nullable = false } = options;
+
   return applyDecorators(
     ApiExtraModels(CommonResponseDto, dataType),
     ApiResponse({
@@ -22,35 +30,18 @@ export function ApiCommonResponse<T extends Type<any>>(dataType: T) {
           },
           {
             properties: {
-              data: {
-                $ref: getSchemaPath(dataType),
-              },
+              data: nullable
+                ? {
+                    allOf: [{ $ref: getSchemaPath(dataType) }],
+                    nullable: true, // 👈 apply nullable
+                  }
+                : { $ref: getSchemaPath(dataType) },
             },
           },
         ],
       },
     }),
   );
-}
-
-export function IsEthAddress(validationOptions?: ValidationOptions) {
-  return function (object: NonNullable<any>, propertyName: string) {
-    registerDecorator({
-      name: 'isEthAddress',
-      target: object.constructor,
-      propertyName: propertyName,
-      constraints: [propertyName],
-      options: validationOptions,
-      validator: {
-        validate(value: any) {
-          return matches(value, /^0x[a-fA-F0-9]{40}$/);
-        },
-        defaultMessage() {
-          return `${propertyName} should be a valid eth address !`;
-        },
-      },
-    });
-  };
 }
 
 export function IsName(
@@ -67,8 +58,8 @@ export function IsName(
       validator: {
         validate(value: any) {
           return isFullName
-            ? matches(value, /^[A-Za-z0-9 #^&*_+\-=]+$/)
-            : matches(value, /^[A-Za-z0-9 #^&*_+\-=]+$/);
+            ? matches(value, /^[A-Za-z0-9 #^&*_+\-=()/'. ,:]+$/)
+            : matches(value, /^[A-Za-z0-9 #^&*_+\-=()/'. ,:]+$/);
         },
         defaultMessage() {
           return `${propertyName} should only contains alphabets`;
@@ -114,51 +105,76 @@ export function IsNotBlank(validationOptions?: ValidationOptions) {
             return true;
           }
         },
+        defaultMessage() {
+          return `${propertyName} should not be blank`;
+        },
       },
     });
   };
 }
 
 export function IsPostalCodeOf(
-  property: string,
+  property?: string,
   validationOptions?: ValidationOptions,
 ) {
-  return function (object: object, propertyName: string) {
-    const unsupportedCountryCode = ['AX'];
-    const unsupportedCountryCodeMapping = new Map<string, string>();
-    unsupportedCountryCodeMapping.set('AX', 'FI');
+  return function (object: any, propertyName: string) {
+    const unsupportedCountryCode = ['AX', 'AE'];
+    const unsupportedCountryCodeMapping = new Map<string, string>([
+      ['AX', 'FI'],
+      ['AE', 'any'],
+    ]);
+
+    // NEW: regex constraint
+    const POSTAL_CODE_REGEX = /^[A-Za-z0-9,.\-\/ ]{3,10}$/;
 
     registerDecorator({
       name: 'isPostalCodeOf',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       constraints: [property],
       options: validationOptions,
       validator: {
         validate(value: any, args: ValidationArguments) {
-          const [countryCodeField] = args.constraints;
-          const countryCode = (args.object as any)[countryCodeField];
-          if (!isISO31661Alpha2(countryCode)) {
-            // Invalid county code
+          if (typeof value !== 'string') {
             return false;
           }
 
-          let countryCodeISO = countryCode;
-          if (unsupportedCountryCodeMapping.get(countryCode)) {
-            // Check is unsupported mapping has something
-            countryCodeISO = unsupportedCountryCodeMapping.get(countryCode);
+          // 1️⃣ Regex validation (always applied)
+          return POSTAL_CODE_REGEX.test(value);
+
+          const [countryCodeField] = args.constraints;
+
+          // 2️⃣ No country provided → generic validation
+          if (!countryCodeField) {
+            return isPostalCode(value, 'any');
           }
 
-          return isPostalCode(
-            value,
-            unsupportedCountryCode.includes(countryCodeISO.toUpperCase()) // If still not present in the mapping, then it is unsupported and use 'any'
-              ? 'any'
-              : countryCodeISO,
-          );
+          const countryCode = (args.object as any)[countryCodeField];
+
+          if (!countryCode) {
+            return isPostalCode(value, 'any');
+          }
+
+          if (!isISO31661Alpha2(countryCode)) {
+            return false;
+          }
+
+          // 3️⃣ Map unsupported country codes
+          const countryCodeISO =
+            unsupportedCountryCodeMapping.get(countryCode) ?? countryCode;
+
+          const validatorCountry = unsupportedCountryCode.includes(
+            countryCodeISO.toUpperCase(),
+          )
+            ? 'any'
+            : countryCodeISO;
+
+          return isPostalCode(value, validatorCountry);
         },
+
         defaultMessage: buildMessage(
-          (eachPrefix) =>
-            `${eachPrefix} $property must be a valid postal code in the specified country `,
+          () =>
+            `$property must be a valid postal code (4–10 characters, alphanumeric, , . - / allowed)`,
           validationOptions,
         ),
       },
@@ -238,7 +254,7 @@ export function IsFileName(validationOptions?: ValidationOptions) {
       options: validationOptions,
       validator: {
         validate(value: any) {
-          return matches(value, /^[A-Za-z0-9 .#^&*_+\-=]+$/);
+          return matches(value, /^[A-Za-z0-9 #^&*_+\-=()/'. ,:]+$/);
         },
         defaultMessage() {
           return `${propertyName} should only contain alphanumeric characters, spaces, and dot.`;
@@ -269,19 +285,55 @@ export function IsFutureDate(validationOptions?: ValidationOptions) {
   };
 }
 
-export function IsOfferingId(validationOptions?: ValidationOptions) {
+export function IsRedisUrl(validationOptions?: ValidationOptions) {
   return function (object: NonNullable<any>, propertyName: string) {
     registerDecorator({
-      name: 'isOfferingId',
+      name: 'isRedisUrl',
       target: object.constructor,
       propertyName: propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
-          return matches(value, /^[0-9a-fA-F-]{36}$/);
+          if (typeof value !== 'string') return false;
+
+          /**
+           * Redis URL Format:
+           * redis://[[username][:password]@]host[:port][/db]
+           *
+           * Username/password are optional.
+           */
+
+          const redisUrlRegex =
+            /^rediss?:\/\/(?:([^:@]+)(?::([^@]+))?@)?([^:/?#]+)(?::(\d+))?(?:\/(\d+))?$/;
+
+          const match = value.match(redisUrlRegex);
+          if (!match) return false;
+
+          const [, username, password, host, port, db] = match;
+
+          // Validate port (if present)
+          if (
+            port &&
+            (isNaN(Number(port)) || Number(port) <= 0 || Number(port) > 65535)
+          ) {
+            return false;
+          }
+
+          // Validate db index (if present)
+          if (db && (isNaN(Number(db)) || Number(db) < 0)) {
+            return false;
+          }
+
+          // Username/password OPTIONAL — nothing else to check
+          if (username || password || host) {
+            return true;
+          }
+
+          return true;
         },
+
         defaultMessage(args: ValidationArguments) {
-          return `${args.property} must be a future date`;
+          return `${args.property} must be a valid Redis connection URL`;
         },
       },
     });

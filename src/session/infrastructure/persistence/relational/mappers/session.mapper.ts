@@ -1,5 +1,4 @@
-import { UserEntity } from '../../../../../users/infrastructure/persistence/relational/entities/user.entity';
-import { UserMapper } from '../../../../../users/infrastructure/persistence/relational/mappers/user.mapper';
+import { UserEntity } from '../../../../../users/repositories/user/repository/user.entity';
 import { Session } from '../../../../domain/session';
 import { SessionEntity } from '../entities/session.entity';
 
@@ -8,7 +7,9 @@ export class SessionMapper {
     const domainEntity = new Session();
     domainEntity.id = raw.id;
     if (raw.user) {
-      domainEntity.user = UserMapper.toDomain(raw.user);
+      const user = new UserEntity();
+      user.id = raw.user.id;
+      domainEntity.user = user;
     }
     domainEntity.hash = raw.hash;
     domainEntity.createdAt = raw.createdAt;
@@ -19,7 +20,7 @@ export class SessionMapper {
 
   static toPersistence(domainEntity: Session): SessionEntity {
     const user = new UserEntity();
-    user.id = Number(domainEntity.user.id);
+    user.id = domainEntity.user.id;
 
     const persistenceEntity = new SessionEntity();
     if (domainEntity.id && typeof domainEntity.id === 'number') {

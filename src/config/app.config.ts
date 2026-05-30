@@ -4,12 +4,17 @@ import validateConfig from '.././utils/validate-config';
 import {
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
+import { IsRedisUrl } from '../utils/decorators';
+import { parseRedisUrl } from '../utils/common';
+import path from 'path';
 
 enum Environment {
   Development = 'development',
@@ -21,6 +26,11 @@ class EnvironmentVariablesValidator {
   @IsEnum(Environment)
   @IsOptional()
   NODE_ENV: Environment;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  APP_NAME?: string;
 
   @IsInt()
   @Min(0)
@@ -48,38 +58,45 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   APP_HEADER_LANGUAGE: string;
 
+  @IsNotEmpty()
+  @IsString()
+  @IsRedisUrl()
+  REDIS_HOST: string;
+
+  @IsString()
+  @IsNotEmpty()
+  DATA_ENCRYPT_KEY: string;
+
   @IsOptional()
   @IsString()
   ALLOWED_ORIGINS: string;
-
-  @IsOptional()
-  @IsString()
-  REDIS_HOST?: string;
-
-  @IsOptional()
-  @IsString()
-  REDIS_PORT?: string;
 }
 
 export default registerAs<AppConfig>('app', () => {
-  validateConfig(process.env, EnvironmentVariablesValidator);
+  const env = validateConfig(process.env, EnvironmentVariablesValidator);
+  const redisInfo = parseRedisUrl(env.REDIS_HOST);
 
   return {
-    nodeEnv: process.env.NODE_ENV || 'development',
-    name: process.env.APP_NAME || 'app',
-    workingDirectory: process.env.PWD || process.cwd(),
-    frontendDomain: process.env.FRONTEND_DOMAIN,
-    backendDomain: process.env.BACKEND_DOMAIN ?? 'http://localhost',
+    nodeEnv: env.NODE_ENV || 'development',
+    name: env?.APP_NAME || 'app',
+    workingDirectory: path.join(process.env.PWD || process.cwd(), 'dist'),
+    frontendDomain: env.FRONTEND_DOMAIN,
+    backendDomain: env.BACKEND_DOMAIN ?? 'http://localhost',
     port: process.env.APP_PORT
       ? parseInt(process.env.APP_PORT, 10)
       : process.env.PORT
         ? parseInt(process.env.PORT, 10)
         : 3000,
-    apiPrefix: process.env.API_PREFIX || 'api',
-    fallbackLanguage: process.env.APP_FALLBACK_LANGUAGE || 'en',
-    headerLanguage: process.env.APP_HEADER_LANGUAGE || 'x-custom-lang',
+    apiPrefix: env.API_PREFIX || 'api',
+    fallbackLanguage: env.APP_FALLBACK_LANGUAGE || 'en',
     allowedOrigins: process.env.ALLOWED_ORIGINS ?? undefined,
-    redisHost: process.env.REDIS_HOST ?? 'localhost',
-    redisPort: process.env.REDIS_PORT ?? '6379',
+    headerLanguage: env.APP_HEADER_LANGUAGE || 'x-custom-lang',
+    redisUrl: redisInfo.url,
+    redisHost: redisInfo.host || 'localhost',
+    redisPort: redisInfo.port.toString() || '6379',
+    redisEnableEncryption: redisInfo.encryption || false,
+    redisUserName: redisInfo.username,
+    redisPassword: redisInfo.password,
+    dataEncryptKey: env.DATA_ENCRYPT_KEY,
   };
 });

@@ -6,18 +6,14 @@ import {
 import { CreateUserDto } from './dto/create-user.dto';
 import { NullableType } from '../utils/types/nullable.type';
 import { FilterUserDto, SortUserDto } from './dto/query-user.dto';
-import { UserRepository } from './infrastructure/persistence/user.repository';
-import { User } from './domain/user';
+import { User } from './repositories/user/domain/user';
 import bcrypt from 'bcryptjs';
 import { AuthProvidersEnum } from '../auth/auth-providers.enum';
 import { FilesService } from '../files/files.service';
 import { RoleEnum } from '../roles/roles.enum';
-import { StatusEnum } from '../statuses/statuses.enum';
 import { IPaginationOptions } from '../utils/types/pagination-options';
-import { FileType } from '../files/domain/file';
-import { Role } from '../roles/domain/role';
-import { Status } from '../statuses/domain/status';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UserRepository } from './repositories/user/user.repository';
 
 @Injectable()
 export class UsersService {
@@ -37,7 +33,14 @@ export class UsersService {
       password = await bcrypt.hash(createUserDto.password, salt);
     }
 
-    let email: string | null = null;
+    if (!password) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          password: 'passwordIsRequired',
+        },
+      });
+    }
 
     if (createUserDto.email) {
       const userObject = await this.usersRepository.findByEmail(
@@ -51,15 +54,12 @@ export class UsersService {
           },
         });
       }
-      email = createUserDto.email;
     }
 
-    let photo: FileType | null | undefined = undefined;
+    let photo: string | undefined = undefined;
 
-    if (createUserDto.photo?.id) {
-      const fileObject = await this.filesService.findById(
-        createUserDto.photo.id,
-      );
+    if (createUserDto.photo) {
+      const fileObject = await this.filesService.findById(createUserDto.photo);
       if (!fileObject) {
         throw new UnprocessableEntityException({
           status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -68,17 +68,15 @@ export class UsersService {
           },
         });
       }
-      photo = fileObject;
-    } else if (createUserDto.photo === null) {
-      photo = null;
+      photo = fileObject.id;
     }
 
-    let role: Role | undefined = undefined;
+    let role: RoleEnum | undefined = createUserDto.role;
 
-    if (createUserDto.role?.id) {
+    if (createUserDto.role) {
       const roleObject = Object.values(RoleEnum)
         .map(String)
-        .includes(String(createUserDto.role.id));
+        .includes(String(createUserDto.role));
       if (!roleObject) {
         throw new UnprocessableEntityException({
           status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -88,43 +86,19 @@ export class UsersService {
         });
       }
 
-      role = {
-        id: createUserDto.role.id,
-      };
-    }
-
-    let status: Status | undefined = undefined;
-
-    if (createUserDto.status?.id) {
-      const statusObject = Object.values(StatusEnum)
-        .map(String)
-        .includes(String(createUserDto.status.id));
-      if (!statusObject) {
-        throw new UnprocessableEntityException({
-          status: HttpStatus.UNPROCESSABLE_ENTITY,
-          errors: {
-            status: 'statusNotExists',
-          },
-        });
-      }
-
-      status = {
-        id: createUserDto.status.id,
-      };
+      role = createUserDto.role;
     }
 
     return this.usersRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
-      firstName: createUserDto.firstName,
-      lastName: createUserDto.lastName,
-      email: email,
-      password: password,
-      photo: photo,
-      role: role,
-      status: status,
-      provider: createUserDto.provider ?? AuthProvidersEnum.email,
-      socialId: createUserDto.socialId,
+      first_name: createUserDto.firstName,
+      last_name: createUserDto.lastName,
+      email: createUserDto.email,
+      password,
+      photo,
+      role,
+      provider: AuthProvidersEnum.email,
     });
   }
 
@@ -156,19 +130,6 @@ export class UsersService {
     return this.usersRepository.findByEmail(email);
   }
 
-  findBySocialIdAndProvider({
-    socialId,
-    provider,
-  }: {
-    socialId: User['socialId'];
-    provider: User['provider'];
-  }): Promise<NullableType<User>> {
-    return this.usersRepository.findBySocialIdAndProvider({
-      socialId,
-      provider,
-    });
-  }
-
   async update(
     id: User['id'],
     updateUserDto: UpdateUserDto,
@@ -187,7 +148,7 @@ export class UsersService {
       }
     }
 
-    let email: string | null | undefined = undefined;
+    let email: string | undefined = undefined;
 
     if (updateUserDto.email) {
       const userObject = await this.usersRepository.findByEmail(
@@ -204,16 +165,12 @@ export class UsersService {
       }
 
       email = updateUserDto.email;
-    } else if (updateUserDto.email === null) {
-      email = null;
     }
 
-    let photo: FileType | null | undefined = undefined;
+    let photo: string | undefined = undefined;
 
-    if (updateUserDto.photo?.id) {
-      const fileObject = await this.filesService.findById(
-        updateUserDto.photo.id,
-      );
+    if (updateUserDto.photo) {
+      const fileObject = await this.filesService.findById(updateUserDto.photo);
       if (!fileObject) {
         throw new UnprocessableEntityException({
           status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -222,63 +179,17 @@ export class UsersService {
           },
         });
       }
-      photo = fileObject;
-    } else if (updateUserDto.photo === null) {
-      photo = null;
-    }
-
-    let role: Role | undefined = undefined;
-
-    if (updateUserDto.role?.id) {
-      const roleObject = Object.values(RoleEnum)
-        .map(String)
-        .includes(String(updateUserDto.role.id));
-      if (!roleObject) {
-        throw new UnprocessableEntityException({
-          status: HttpStatus.UNPROCESSABLE_ENTITY,
-          errors: {
-            role: 'roleNotExists',
-          },
-        });
-      }
-
-      role = {
-        id: updateUserDto.role.id,
-      };
-    }
-
-    let status: Status | undefined = undefined;
-
-    if (updateUserDto.status?.id) {
-      const statusObject = Object.values(StatusEnum)
-        .map(String)
-        .includes(String(updateUserDto.status.id));
-      if (!statusObject) {
-        throw new UnprocessableEntityException({
-          status: HttpStatus.UNPROCESSABLE_ENTITY,
-          errors: {
-            status: 'statusNotExists',
-          },
-        });
-      }
-
-      status = {
-        id: updateUserDto.status.id,
-      };
+      photo = fileObject.id;
     }
 
     return this.usersRepository.update(id, {
       // Do not remove comment below.
       // <updating-property-payload />
-      firstName: updateUserDto.firstName,
-      lastName: updateUserDto.lastName,
+      first_name: updateUserDto.firstName,
+      last_name: updateUserDto.lastName,
       email,
       password,
       photo,
-      role,
-      status,
-      provider: updateUserDto.provider,
-      socialId: updateUserDto.socialId,
     });
   }
 

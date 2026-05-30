@@ -8,7 +8,12 @@ export type AppConfig = {
   apiPrefix: string;
   fallbackLanguage: string;
   headerLanguage: string;
+  dataEncryptKey: string;
   allowedOrigins?: string;
+  redisUrl: string;
   redisHost: string;
   redisPort: string;
+  redisUserName?: string;
+  redisPassword?: string;
+  redisEnableEncryption: boolean;
 };

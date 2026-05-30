@@ -1,4 +1,4 @@
-import { User } from '../../../users/domain/user';
+import { User } from '../../../users/repositories/user/domain/user';
 import { NullableType } from '../../../utils/types/nullable.type';
 import { Session } from '../../domain/session';
 
@@ -11,6 +11,13 @@ export abstract class SessionRepository {
 
   abstract update(
     id: Session['id'],
+    payload: Partial<
+      Omit<Session, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
+    >,
+  ): Promise<Session | null>;
+
+  abstract updateByHash(
+    conditions: { id: Session['id']; hash: Session['hash'] },
     payload: Partial<
       Omit<Session, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
     >,

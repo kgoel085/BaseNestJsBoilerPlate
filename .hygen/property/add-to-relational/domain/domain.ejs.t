@@ -4,8 +4,9 @@ to: src/<%= h.inflection.transform(name, ['pluralize', 'underscore', 'dasherize'
 after: export class <%= name %> {
 ---
 
+<% if (isAddToDto) { -%>
 @ApiProperty({
-  type: () => 
+  type: () =>
     <% if (kind === 'primitive') { -%>
       <% if (type === 'string') { -%>
         String,
@@ -16,7 +17,7 @@ after: export class <%= name %> {
       <% } else if (type === 'Date') { -%>
         Date,
       <% } -%>
-    <% } else if (kind === 'reference' || kind === 'duplication') { -%>
+    <% } else if (kind === 'reference' || kind === 'denormalized') { -%>
       <% if (referenceType === 'oneToMany' || referenceType === 'manyToMany') { -%>
         [<%= type %><% if (type === 'File') { -%>Type<% } -%>],
       <% } else { -%>
@@ -25,8 +26,11 @@ after: export class <%= name %> {
     <% } -%>
   nullable: <%= isNullable %>,
 })
+<% } else { -%>
+@Exclude({ toPlainOnly: true })
+<% } -%>
 
-<% if (kind === 'reference' || kind === 'duplication') { -%>
+<% if (kind === 'reference' || kind === 'denormalized') { -%>
   <%= property %><% if (!isAddToDto || isOptional) { -%>?<% } -%>: <%= type %><% if (type === 'File') { -%>Type<% } -%><% if (referenceType === 'oneToMany' || referenceType === 'manyToMany') { -%>[]<% } -%> <% if (isNullable) { -%> | null<% } -%>;
 <% } else { -%>
   <%= property %><% if (!isAddToDto || isOptional) { -%>?<% } -%>: <%= type %> <% if (isNullable) { -%> | null<% } -%>;

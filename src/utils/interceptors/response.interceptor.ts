@@ -9,9 +9,9 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { Response } from 'express';
 import { map, Observable } from 'rxjs';
-import { decrypt, encrypt } from '../crypto';
+import { decrypt, encrypt } from './../crypto';
 import { ConfigService } from '@nestjs/config';
-import { AllConfigType } from 'src/config/config.type';
+import { AllConfigType } from '../../config/config.type';
 
 export class CommonResponseDto<T> {
   @ApiProperty()
@@ -67,9 +67,8 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
     next: CallHandler<T>,
   ): Observable<Response<T>> {
     if (this.secretKey && this.enableEncryption) {
-      // Handle decryption of request body and query params
+      // Handle decryption of request body and query param
       const request = context.switchToHttp().getRequest();
-
       request.body = this.handleData(request.body);
       request.query = this.handleData(request.query);
     }

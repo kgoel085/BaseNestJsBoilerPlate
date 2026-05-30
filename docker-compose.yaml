@@ -1,54 +1,29 @@
 services:
   postgres:
-    container_name: brp-postgres
-    image: postgres:16.2-alpine
+    image: postgres:17.9-alpine
+    container_name: trust-forge-postgres
     ports:
-      - 5432:5432
-    networks:
-      - brp
+      - ${DATABASE_PORT}:5432
     volumes:
-      - brp:/var/lib/postgresql/data
+      - trust-forge-db:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      DATABASE: brp_local
-      POSTGRES_PASSWORD: admin@12345
-  localstack:
-    image: localstack/localstack:1.4.0
-    environment:
-      - AWS_DEFAULT_REGION=us-east-1
-      - EDGE_PORT=4566
-      - SERVICES=s3,sqs,ssm,secretsmanager,pinpoint
-      - DEBUG=1
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+
+  maildev:
+    container_name: trust-forge-maildev
+    build:
+      context: .
+      dockerfile: maildev.Dockerfile
     ports:
-      - '4563-4599:4563-4599'
-      - '8055:8080'
-    volumes:
-      - './src/.localstack:/var/lib/localstack'
-      - './src/scripts/localstack-setup:/docker-entrypoint-initaws.d'
-    networks:
-      - brp
+      - ${MAIL_CLIENT_PORT}:1080
+      - ${MAIL_PORT}:1025
+
   redis:
-    image: redis:7.4.2
-    restart: always
+    image: redis:7-alpine
     ports:
-      - '6380:6379'
-    command: redis-server --save 20 1 --loglevel warning
-    volumes: 
-      - cache:/data
-    networks:
-      - brp
-  redis-insight:
-    image: redis/redisinsight:latest
-    restart: always
-    ports:
-      - "5540:5540"
-    volumes:
-      - redis-insight:/data
-    networks:
-      - brp
+      - 6379:6379
+
 volumes:
-  brp:
-  cache:
-  redis-insight:
-networks:
-  brp:
+  trust-forge-db:

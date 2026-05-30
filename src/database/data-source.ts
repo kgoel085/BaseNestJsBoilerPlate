@@ -8,22 +8,29 @@ import {
   ObjectLiteral,
   Repository,
 } from 'typeorm';
+import databaseConfig from './config/database.config';
+import { DatabaseConfig } from './config/database-config.type';
+import { Environment } from '../config/config.type';
 import { ENTITY_MANAGER_KEY } from '../utils/interceptors/db-transaction.interceptor';
 
+const db = databaseConfig() as DatabaseConfig;
+const nodeEnv = (process.env.NODE_ENV ||
+  Environment.Development) as Environment;
+
 export const AppDataSource = new DataSource({
-  type: process.env.DATABASE_TYPE,
-  url: process.env.DATABASE_URL,
-  host: process.env.DATABASE_HOST,
-  port: process.env.DATABASE_PORT
-    ? parseInt(process.env.DATABASE_PORT, 10)
-    : 5432,
-  username: process.env.DATABASE_USERNAME,
-  password: process.env.DATABASE_PASSWORD,
-  database: process.env.DATABASE_NAME,
-  synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
+  type: db.type || 'postgres',
+  url: db.url,
+  host: db.host,
+  port: db.port ?? 5432,
+  username: db.username,
+  password: db.password,
+  database: db.name,
+  synchronize: db.synchronize,
   dropSchema: false,
   keepConnectionAlive: true,
-  logging: process.env.NODE_ENV !== 'production',
+  logging: [Environment.Local, Environment.Development].includes(nodeEnv)
+    ? ['error', 'warn', 'info']
+    : ['error'],
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
   cli: {
@@ -34,19 +41,15 @@ export const AppDataSource = new DataSource({
   extra: {
     // based on https://node-postgres.com/api/pool
     // max connection pool size
-    max: process.env.DATABASE_MAX_CONNECTIONS
-      ? parseInt(process.env.DATABASE_MAX_CONNECTIONS, 10)
-      : 100,
-    ssl:
-      process.env.DATABASE_SSL_ENABLED === 'true'
-        ? {
-            rejectUnauthorized:
-              process.env.DATABASE_REJECT_UNAUTHORIZED === 'true',
-            ca: process.env.DATABASE_CA ?? undefined,
-            key: process.env.DATABASE_KEY ?? undefined,
-            cert: process.env.DATABASE_CERT ?? undefined,
-          }
-        : undefined,
+    max: db.maxConnections ?? 100,
+    ssl: db.sslEnabled
+      ? {
+          rejectUnauthorized: db.rejectUnauthorized,
+          ca: db.ca ?? undefined,
+          key: db.key ?? undefined,
+          cert: db.cert ?? undefined,
+        }
+      : undefined,
   },
 } as DataSourceOptions);
 

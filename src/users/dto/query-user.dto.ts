@@ -1,20 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type, plainToInstance } from 'class-transformer';
-import { User } from '../domain/user';
-import { RoleDto } from '../../roles/dto/role.dto';
+import { User } from '../repositories/user/domain/user';
+import { RoleEnum } from '../../roles/roles.enum';
 
 export class FilterUserDto {
-  @ApiPropertyOptional({ type: RoleDto })
+  @ApiPropertyOptional({ enum: RoleEnum })
   @IsOptional()
   @ValidateNested({ each: true })
-  @Type(() => RoleDto)
-  roles?: RoleDto[] | null;
+  @IsEnum(RoleEnum, { each: true })
+  roles?: RoleEnum[] | null;
 }
 
 export class SortUserDto {

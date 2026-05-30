@@ -6,21 +6,13 @@ import {
 import { UsersController } from './users.controller';
 
 import { UsersService } from './users.service';
-import { RelationalUserPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 import { FilesModule } from '../files/files.module';
-
-// <database-block>
-const infrastructurePersistenceModule = RelationalUserPersistenceModule;
-// </database-block>
+import { UserPersistenceModule } from './repositories';
 
 @Module({
-  imports: [
-    // import modules, etc.
-    infrastructurePersistenceModule,
-    FilesModule,
-  ],
+  imports: [UserPersistenceModule, FilesModule],
   controllers: [UsersController],
   providers: [UsersService],
-  exports: [UsersService, infrastructurePersistenceModule],
+  exports: [UsersService, UserPersistenceModule],
 })
 export class UsersModule {}

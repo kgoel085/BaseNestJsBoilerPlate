@@ -1,55 +1,45 @@
 import {
   // decorators here
   Transform,
-  Type,
 } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   // decorators here
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
+  IsUUID,
   MinLength,
 } from 'class-validator';
-import { FileDto } from '../../files/dto/file.dto';
-import { RoleDto } from '../../roles/dto/role.dto';
-import { StatusDto } from '../../statuses/dto/status.dto';
 import { lowerCaseTransformer } from '../../utils/transformers/lower-case.transformer';
+import { RoleEnum } from '../../roles/roles.enum';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'test1@example.com', type: String })
   @Transform(lowerCaseTransformer)
   @IsNotEmpty()
   @IsEmail()
-  email: string | null;
+  email: string;
 
   @ApiProperty()
   @MinLength(6)
-  password?: string;
-
-  provider?: string;
-
-  socialId?: string | null;
+  password: string;
 
   @ApiProperty({ example: 'John', type: String })
   @IsNotEmpty()
-  firstName: string | null;
+  firstName: string;
 
   @ApiProperty({ example: 'Doe', type: String })
   @IsNotEmpty()
-  lastName: string | null;
-
-  @ApiPropertyOptional({ type: () => FileDto })
+  lastName: string;
+  @ApiPropertyOptional({ type: String })
   @IsOptional()
-  photo?: FileDto | null;
+  @IsUUID()
+  photo?: string;
 
-  @ApiPropertyOptional({ type: RoleDto })
+  @ApiPropertyOptional({ enum: RoleEnum })
   @IsOptional()
-  @Type(() => RoleDto)
-  role?: RoleDto | null;
-
-  @ApiPropertyOptional({ type: StatusDto })
-  @IsOptional()
-  @Type(() => StatusDto)
-  status?: StatusDto;
+  @IsEnum(RoleEnum)
+  role: RoleEnum;
 }

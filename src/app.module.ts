@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { BadRequestException, Module } from '@nestjs/common';
 import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
 import { AuthModule } from './auth/auth.module';
@@ -7,15 +7,9 @@ import authConfig from './auth/config/auth.config';
 import appConfig from './config/app.config';
 import mailConfig from './mail/config/mail.config';
 import fileConfig from './files/config/file.config';
-import facebookConfig from './auth-facebook/config/facebook.config';
-import googleConfig from './auth-google/config/google.config';
-import appleConfig from './auth-apple/config/apple.config';
 import path from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthAppleModule } from './auth-apple/auth-apple.module';
-import { AuthFacebookModule } from './auth-facebook/auth-facebook.module';
-import { AuthGoogleModule } from './auth-google/auth-google.module';
 import { HeaderResolver, I18nModule } from 'nestjs-i18n';
 import { TypeOrmConfigService } from './database/typeorm-config.service';
 import { MailModule } from './mail/mail.module';
@@ -25,55 +19,26 @@ import { AllConfigType } from './config/config.type';
 import { SessionModule } from './session/session.module';
 import { MailerModule } from './mailer/mailer.module';
 import { ClsModule } from 'nestjs-cls';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import throttleOptions from './utils/throttle-config';
-import { APP_GUARD } from '@nestjs/core';
-import awsConfig from './config/aws.config';
+import { InCacheModule } from './cache/cache.module';
 
-// <database-block>
-const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
+const InfrastructureDatabaseModule = TypeOrmModule.forRootAsync({
   useClass: TypeOrmConfigService,
-  dataSourceFactory: async (options: DataSourceOptions) => {
+  dataSourceFactory: async (options?: DataSourceOptions) => {
+    if (!options) {
+      throw new BadRequestException('TypeORM options are undefined');
+    }
     return new DataSource(options).initialize();
   },
 });
-// </database-block>
 
 @Module({
   imports: [
-    ClsModule.forRoot({
-      // USE THIS IF WANT TO SET ANY VALUE ACROSS REQUEST INSTANCE
-      global: true,
-      middleware: {
-        generateId: true,
-        // automatically mount the
-        // ClsMiddleware for all routes
-        mount: true,
-
-        // and use the setup method to
-        // provide default store values.
-        // setup: (cls) => {
-        //   cls.set('requestId', undefined);
-        // },
-      },
-    }),
-    ThrottlerModule.forRoot(throttleOptions),
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [
-        databaseConfig,
-        authConfig,
-        appConfig,
-        mailConfig,
-        fileConfig,
-        facebookConfig,
-        googleConfig,
-        appleConfig,
-        awsConfig,
-      ],
+      load: [databaseConfig, authConfig, appConfig, mailConfig, fileConfig],
       envFilePath: ['.env'],
     }),
-    infrastructureDatabaseModule,
+    InfrastructureDatabaseModule,
     I18nModule.forRootAsync({
       useFactory: (configService: ConfigService<AllConfigType>) => ({
         fallbackLanguage: configService.getOrThrow('app.fallbackLanguage', {
@@ -97,22 +62,27 @@ const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
     }),
+    ClsModule.forRoot({
+      global: true,
+      middleware: {
+        // automatically mount the
+        // ClsMiddleware for all routes
+        mount: true,
+        // and use the setup method to
+        // provide default store values.
+        setup: (cls, req) => {
+          cls.set('userId', req.headers['x-user-id']);
+        },
+      },
+    }),
     UsersModule,
     FilesModule,
     AuthModule,
-    AuthFacebookModule,
-    AuthGoogleModule,
-    AuthAppleModule,
     SessionModule,
     MailModule,
     MailerModule,
     HomeModule,
-  ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
+    InCacheModule,
   ],
 })
 export class AppModule {}

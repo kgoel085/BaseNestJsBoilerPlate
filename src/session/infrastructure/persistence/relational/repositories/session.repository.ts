@@ -8,7 +8,7 @@ import { SessionRepository } from '../../session.repository';
 import { Session } from '../../../../domain/session';
 
 import { SessionMapper } from '../mappers/session.mapper';
-import { User } from '../../../../../users/domain/user';
+import { User } from '../../../../../users/repositories/user/domain/user';
 
 @Injectable()
 export class SessionRelationalRepository implements SessionRepository {
@@ -60,6 +60,28 @@ export class SessionRelationalRepository implements SessionRepository {
     return SessionMapper.toDomain(updatedEntity);
   }
 
+  async updateByHash(
+    conditions: { id: Session['id']; hash: Session['hash'] },
+    payload: Partial<
+      Omit<Session, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
+    >,
+  ): Promise<Session | null> {
+    const result = await this.sessionRepository.update(
+      { id: Number(conditions.id), hash: conditions.hash },
+      { hash: payload.hash },
+    );
+
+    if (!result.affected) {
+      return null;
+    }
+
+    const entity = await this.sessionRepository.findOne({
+      where: { id: Number(conditions.id) },
+    });
+
+    return entity ? SessionMapper.toDomain(entity) : null;
+  }
+
   async deleteById(id: Session['id']): Promise<void> {
     await this.sessionRepository.softDelete({
       id: Number(id),
@@ -69,7 +91,7 @@ export class SessionRelationalRepository implements SessionRepository {
   async deleteByUserId(conditions: { userId: User['id'] }): Promise<void> {
     await this.sessionRepository.softDelete({
       user: {
-        id: Number(conditions.userId),
+        id: conditions.userId,
       },
     });
   }
@@ -80,9 +102,9 @@ export class SessionRelationalRepository implements SessionRepository {
   }): Promise<void> {
     await this.sessionRepository.softDelete({
       user: {
-        id: Number(conditions.userId),
+        id: conditions.userId,
       },
-      id: Not(Number(conditions.excludeSessionId)),
+      id: Not(conditions.excludeSessionId),
     });
   }
 }

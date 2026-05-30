@@ -5,63 +5,70 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger: Logger;
-  constructor() {
-    this.logger = new Logger();
-  }
-  catch(exception: HttpException, host: ArgumentsHost): any {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
+  catch(exception: HttpException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
+
     const response = ctx.getResponse();
     const request = ctx.getRequest();
-    const exceptionResponse =
-      typeof exception?.getResponse === 'function'
-        ? exception?.getResponse()
-        : undefined;
 
     const statusCode =
       typeof exception?.getStatus === 'function'
-        ? exception?.getStatus()
+        ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    this.logger.debug(
-      {
-        stack: exception.stack,
-        exception,
-        req: request?.body,
-        headers: JSON.stringify(request?.rawHeaders ?? ''),
-      },
-      'Exception Error Stack:: ',
-    );
-    const reqErrStr = `request method: ${request.method} request url: ${request.url}`;
-    if (
-      [400, 422, 404, 429].includes(statusCode) &&
-      typeof exceptionResponse === 'object' &&
-      'message' in exceptionResponse
-    ) {
-      const validationErrors = (exceptionResponse as any).message;
+    const exceptionResponse =
+      typeof exception?.getResponse === 'function'
+        ? exception.getResponse()
+        : undefined;
 
-      this.logger.error(reqErrStr, validationErrors);
+    const reqErrStr = `${request.method} ${request.url}`;
+
+    const errMsg =
+      typeof exceptionResponse === 'object'
+        ? exceptionResponse?.['message'] || exceptionResponse?.['error']
+        : exceptionResponse || exception.message;
+
+    // Ignore noisy unauthorized spam
+    if (exception instanceof UnauthorizedException) {
+      this.logger.warn(`[401] ${reqErrStr} :: ${errMsg}`);
+
       return response.status(statusCode).json({
         error: true,
         statusCode,
-        message: validationErrors,
+        message: errMsg,
       });
     }
 
-    const errMsg = exceptionResponse
-      ? exceptionResponse['error'] ||
-        exceptionResponse['message'] ||
-        exceptionResponse
-      : 'Invalid request !';
-    this.logger.error(reqErrStr, errMsg);
+    // Validation errors
+    if ([400, 404, 422, 429].includes(statusCode)) {
+      this.logger.warn(
+        `[${statusCode}] ${reqErrStr} :: ${JSON.stringify(errMsg)}`,
+      );
+
+      return response.status(statusCode).json({
+        error: true,
+        statusCode,
+        message: errMsg,
+      });
+    }
+
+    // Production-safe error logging
+    this.logger.error(
+      `[${statusCode}] ${reqErrStr} :: ${errMsg}`,
+      exception.stack?.split('\n').slice(0, 5).join('\n'),
+    );
+
     return response.status(statusCode).json({
-      statusCode,
       error: true,
-      message: errMsg,
+      statusCode,
+      message: errMsg || 'Internal server error',
     });
   }
 }

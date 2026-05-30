@@ -6,10 +6,9 @@ export enum FileDriver {
 
 export type FileConfig = {
   driver: FileDriver;
+  accessKeyId?: string;
+  secretAccessKey?: string;
   awsDefaultS3Bucket?: string;
   awsS3Region?: string;
   maxFileSize: number;
-  awsDefaultS3Url?: string;
-  accessKeyId?: string;
-  secretAccessKey?: string;
 };

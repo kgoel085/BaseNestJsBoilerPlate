@@ -20,7 +20,7 @@ after: export class <%= name %>Entity
   })
 <% } -%>
 
-<% if (kind === 'duplication') { -%>
+<% if (kind === 'denormalized') { -%>
   @Column({
     nullable: <%= isNullable %>,
     type: 'jsonb',
@@ -29,19 +29,19 @@ after: export class <%= name %>Entity
 
 <% if (kind === 'reference') { -%>
   <% if (referenceType === 'oneToOne') { -%>
-    @OneToOne(() => <%= type %>Entity, { eager: true, nullable: <%= isNullable %> })
+    @OneToOne(() => <%= type %>Entity, { eager: <%= shouldAutoLoad %>, nullable: <%= isNullable %> })
   <% } else if (referenceType === 'oneToMany') { -%>
-    @OneToMany(() => <%= type %>Entity, (childEntity) => childEntity.<%= propertyInReference %>, { eager: true, nullable: <%= isNullable %> })
+    @OneToMany(() => <%= type %>Entity, (childEntity) => childEntity.<%= propertyInReference %>, { eager: <%= shouldAutoLoad %>, nullable: <%= isNullable %> })
   <% } else if (referenceType === 'manyToOne') { -%>
     @ManyToOne(
       () => <%= type %>Entity,
       <% if (propertyInReference) { -%>
         (parentEntity) => parentEntity.<%= propertyInReference %>,
       <% } -%>
-      { eager: <% if (propertyInReference) { -%>false<% } else { -%>true<% } -%>, nullable: <%= isNullable %> }
+      { eager: <%= shouldAutoLoad %>, nullable: <%= isNullable %> }
     )
   <% } else if (referenceType === 'manyToMany') { -%>
-    @ManyToMany(() => <%= type %>Entity, { eager: true, nullable: <%= isNullable %> })
+    @ManyToMany(() => <%= type %>Entity, { eager: <%= shouldAutoLoad %>, nullable: <%= isNullable %> })
   <% } -%>
 
   <% if (referenceType === 'oneToOne') { -%>
@@ -53,7 +53,7 @@ after: export class <%= name %>Entity
   <% } -%>
 
   <%= property %><% if (!isAddToDto || isOptional) { -%>?<% } -%>: <%= type %>Entity<% if (referenceType === 'oneToMany' || referenceType === 'manyToMany') { -%>[]<% } -%> <% if (isNullable) { -%> | null<% } -%>;
-<% } else if (kind === 'duplication') { -%>
+<% } else if (kind === 'denormalized') { -%>
   <%= property %><% if (!isAddToDto || isOptional) { -%>?<% } -%>: <%= type %>Entity<% if (referenceType === 'oneToMany' || referenceType === 'manyToMany') { -%>[]<% } -%> <% if (isNullable) { -%> | null<% } -%>;
 <% } else { -%>
   <%= property %><% if (!isAddToDto || isOptional) { -%>?<% } -%>: <%= type %> <% if (isNullable) { -%> | null<% } -%>;

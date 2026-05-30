@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import {
   ClassSerializerInterceptor,
-  RequestMethod,
   ValidationPipe,
   VersioningType,
 } from '@nestjs/common';
@@ -13,36 +12,29 @@ import { AppModule } from './app.module';
 import validationOptions from './utils/validation-options';
 import { AllConfigType } from './config/config.type';
 import { ResolvePromisesInterceptor } from './utils/serializer.interceptor';
-import corsOptions from './utils/cors-option';
+import { LoggerFactory } from './utils/logger';
 import { ResponseInterceptor } from './utils/interceptors/response.interceptor';
 import { HttpExceptionFilter } from './utils/filters/http-exception.filter';
+import corsOptions from './utils/cors';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const logger = LoggerFactory('AppBootStrap');
+  const app = await NestFactory.create(AppModule, { cors: true, logger });
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   const configService = app.get(ConfigService<AllConfigType>);
 
-  // Enable CORS with dynamic origins
-  app?.getHttpAdapter()?.getInstance()?.disable('x-powered-by');
-  app.enableCors(corsOptions(configService));
+  const appEnv = configService.get('app.nodeEnv', { infer: true });
+  logger.log(`Application starting in ${appEnv} environment`);
 
+  const corsOpts = corsOptions(configService);
+  app.enableCors(corsOpts);
+
+  app?.getHttpAdapter()?.getInstance()?.disable('x-powered-by');
   app.enableShutdownHooks();
   app.setGlobalPrefix(
     configService.getOrThrow('app.apiPrefix', { infer: true }),
     {
-      exclude: [
-        '/',
-        {
-          // Don't add prefix for android / ios well known link verification endpoints
-          method: RequestMethod.GET,
-          path: '/',
-        },
-        {
-          // Don't add prefix for android / ios well known link verification endpoints
-          method: RequestMethod.GET,
-          path: `/${configService.getOrThrow('app.apiPrefix', { infer: true })}`,
-        },
-      ],
+      exclude: ['/'],
     },
   );
   app.enableVersioning({
@@ -50,8 +42,6 @@ async function bootstrap() {
   });
   app.useGlobalPipes(new ValidationPipe(validationOptions));
   app.useGlobalInterceptors(
-    // ResolvePromisesInterceptor is used to resolve promises in responses because class-transformer can't do it
-    // https://github.com/typestack/class-transformer/issues/549
     new ResolvePromisesInterceptor(),
     new ClassSerializerInterceptor(app.get(Reflector)),
     new ResponseInterceptor(configService),
@@ -63,6 +53,14 @@ async function bootstrap() {
     .setDescription('API docs')
     .setVersion('1.0')
     .addBearerAuth()
+    .addGlobalParameters({
+      in: 'header',
+      required: false,
+      name: process.env.APP_HEADER_LANGUAGE || 'x-custom-lang',
+      schema: {
+        example: 'en',
+      },
+    })
     .build();
 
   const document = SwaggerModule.createDocument(app, options);

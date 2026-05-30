@@ -1,5 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsUUID,
+  MinLength,
+} from 'class-validator';
 import { FileDto } from '../../files/dto/file.dto';
 import { Transform } from 'class-transformer';
 import { lowerCaseTransformer } from '../../utils/transformers/lower-case.transformer';
@@ -7,7 +13,8 @@ import { lowerCaseTransformer } from '../../utils/transformers/lower-case.transf
 export class AuthUpdateDto {
   @ApiPropertyOptional({ type: () => FileDto })
   @IsOptional()
-  photo?: FileDto | null;
+  @IsUUID()
+  photo?: string;
 
   @ApiPropertyOptional({ example: 'John' })
   @IsOptional()
